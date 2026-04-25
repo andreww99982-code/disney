@@ -1,81 +1,121 @@
-<!DOCTYPE html><html translate="no" lang="en-int"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/e0C2__TICKETS_tcm787-245132.svg"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/e54B__TICKETS-OUTLINED_tcm787-289238.svg"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/icon_e38d_genie-lamp_black700_32_tcm787-271391.svg"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/e0FD__SPECIAL-OFFERS_tcm787-262166.svg"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/VISA-logo-EN_2025jan20_tcm787-285971.png"/><style>.v-discount-badge{display:inline-block;background:#e00;color:#fff;font-size:10px;font-weight:700;padding:1px 4px;border-radius:4px;margin-left:4px;vertical-align:middle;line-height:1.4;white-space:nowrap;}</style>
+<!DOCTYPE html><html translate="no" lang="en-int"><head><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/e0C2__TICKETS_tcm787-245132.svg"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/e54B__TICKETS-OUTLINED_tcm787-289238.svg"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/icon_e38d_genie-lamp_black700_32_tcm787-271391.svg"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/e0FD__SPECIAL-OFFERS_tcm787-262166.svg"/><link rel="preload" as="image" href="https://media.disneylandparis.com/d4th/en-int/images/VISA-logo-EN_2025jan20_tcm787-285971.png"/><style>
+.v-disc-badge {
+    display: inline-block;
+    background: #cc0000;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 4px;
+    vertical-align: middle;
+    line-height: 1.4;
+    white-space: nowrap;
+    font-family: Arial, sans-serif;
+    letter-spacing: 0.3px;
+}
+</style>
+
 <script>
-(function(){
+(function() {
     'use strict';
-    var PRICE_RE=/(€\s*)([\d]+(?:[.,]\d+)?)|([\d]+(?:[.,]\d+)?)(\s*€)/g;
 
-    function processTextNode(node){
-        var parent=node.parentElement;
-        if(!parent)return;
-        if(parent.tagName==='SCRIPT'||parent.tagName==='STYLE')return;
-        if(parent.hasAttribute('data-v-price'))return;
-        var text=node.nodeValue;
-        if(!text.includes('€'))return;
-        var re=new RegExp(PRICE_RE.source,'g');
-        var match,parts=[],lastIndex=0,hasMatch=false;
-        while((match=re.exec(text))!==null){
-            hasMatch=true;
-            if(match.index>lastIndex)parts.push(document.createTextNode(text.slice(lastIndex,match.index)));
-            var prefix='',numStr='',suffix='';
-            if(match[1]!==undefined){prefix=match[1];numStr=match[2];}
-            else{numStr=match[3];suffix=match[4];}
-            var num=parseFloat(numStr.replace(',','.'));
-            if(isNaN(num)){parts.push(document.createTextNode(match[0]));}
-            else{
-                var disc=(num*0.5).toFixed(2);
-                var discStr=numStr.includes(',')?disc.replace('.',','):disc;
-                parts.push(document.createTextNode(prefix+discStr+suffix));
-                var badge=document.createElement('span');
-                badge.className='v-discount-badge';
-                badge.textContent='-50%';
-                parts.push(badge);
-            }
-            lastIndex=match.index+match[0].length;
-        }
-        if(!hasMatch)return;
-        if(lastIndex<text.length)parts.push(document.createTextNode(text.slice(lastIndex)));
-        parent.setAttribute('data-v-price','true');
-        var frag=document.createDocumentFragment();
-        parts.forEach(function(p){frag.appendChild(p);});
-        parent.replaceChild(frag,node);
+    var DONE_ATTR = 'data-disc-done';
+    var DONE_ARIA = 'data-disc-aria';
+
+    function half(str) {
+        var n = parseFloat(str.replace(',', '.'));
+        if (isNaN(n) || n < 2) return null;
+        var r = (n * 0.5).toFixed(2);
+        return str.indexOf(',') !== -1 ? r.replace('.', ',') : r;
     }
 
-    function walk(node){
-        if(!node)return;
-        if(node.nodeType===3){processTextNode(node);}
-        else if(node.nodeType===1){
-            if(node.tagName==='SCRIPT'||node.tagName==='STYLE')return;
-            if(node.hasAttribute('aria-label')&&!node.hasAttribute('data-v-aria')){
-                var label=node.getAttribute('aria-label');
-                if(label.includes('€')){
-                    var re2=new RegExp(PRICE_RE.source,'g');
-                    var newLabel=label.replace(re2,function(m,p1,p2,p3,p4){
-                        var numStr=p2!==undefined?p2:p3;
-                        var num=parseFloat(numStr.replace(',','.'));
-                        if(isNaN(num))return m;
-                        var disc=(num*0.5).toFixed(2);
-                        var discStr=numStr.includes(',')?disc.replace('.',','):disc;
-                        return p1!==undefined?p1+discStr+' (-50%)':discStr+(p4||'')+' (-50%)';
-                    });
-                    node.setAttribute('aria-label',newLabel);
-                    node.setAttribute('data-v-aria','true');
-                }
-            }
-            var children=Array.from(node.childNodes);
-            children.forEach(walk);
+    function badge(el) {
+        var next = el.nextSibling;
+        if (next && next.nodeType === 1 && next.className === 'v-disc-badge') return;
+        var b = document.createElement('span');
+        b.className = 'v-disc-badge';
+        b.textContent = '-50%';
+        el.parentNode.insertBefore(b, el.nextSibling);
+    }
+
+    function processText(node) {
+        var v = node.nodeValue;
+        if (!v || v.indexOf('\u20ac') === -1) return;
+        var p = node.parentElement;
+        if (!p || p.tagName === 'SCRIPT' || p.tagName === 'STYLE') return;
+        if (p.getAttribute(DONE_ATTR)) return;
+
+        var changed = false;
+        var nv = v.replace(/(\u20ac\s*)(\d[\d,\.]*)/g, function(m, sym, num) {
+            var d = half(num);
+            if (!d) return m;
+            changed = true;
+            return sym + d;
+        });
+        nv = nv.replace(/(\d[\d,\.]*)(\s*\u20ac)/g, function(m, num, sym) {
+            var d = half(num);
+            if (!d) return m;
+            changed = true;
+            return d + sym;
+        });
+
+        if (changed) {
+            node.nodeValue = nv;
+            p.setAttribute(DONE_ATTR, '1');
+            badge(p);
         }
     }
 
-    function run(){if(document.body)walk(document.body);}
+    function processAria(el) {
+        if (el.getAttribute(DONE_ARIA)) return;
+        var label = el.getAttribute('aria-label') || '';
+        if (label.indexOf('\u20ac') === -1) return;
+        var nl = label.replace(/(\u20ac\s*)(\d[\d,\.]*)/g, function(m, sym, num) {
+            var d = half(num);
+            return d ? sym + d + ' (-50%)' : m;
+        });
+        if (nl !== label) {
+            el.setAttribute('aria-label', nl);
+            el.setAttribute(DONE_ARIA, '1');
+        }
+    }
 
-    var observer=new MutationObserver(function(mutations){
-        for(var i=0;i<mutations.length;i++){if(mutations[i].addedNodes.length>0){run();return;}}
+    function run() {
+        if (!document.body) return;
+        var tw = document.createTreeWalker(
+            document.body,
+            NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+            null,
+            false
+        );
+        var n;
+        while ((n = tw.nextNode())) {
+            if (n.nodeType === 3) processText(n);
+            else if (n.nodeType === 1 && n.hasAttribute && n.hasAttribute('aria-label')) processAria(n);
+        }
+    }
+
+    var obs = new MutationObserver(function(muts) {
+        for (var i = 0; i < muts.length; i++) {
+            if (muts[i].addedNodes.length) { run(); break; }
+        }
     });
-    observer.observe(document.documentElement,{childList:true,subtree:true});
-    setInterval(run,400);
-    run();
+
+    function init() {
+        run();
+        obs.observe(document.documentElement, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+
+    setInterval(run, 500);
 })();
-</script>><script src="proxy-config.js?v=3"></script><link rel="stylesheet" href="/_next/static/css/57659ba67ce8526e.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/3eb9caa7a9771819.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/808ee801e13a1ae1.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/09cf44782b1c0122.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/85ec3474da9960d7.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/fe890510141ce9f2.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/webpack-e0efe6bfd9187059.js"/><script src="/_next/static/chunks/fd9d1056-5a35e54f2a416d87.js" async=""></script><script src="/_next/static/chunks/2117-b2c4e29a4b2e0279.js" async=""></script><script src="/_next/static/chunks/main-app-5294d1645fe5526e.js" async=""></script><script src="/_next/static/chunks/2361-cafed476f1dbb796.js" async=""></script><script src="/_next/static/chunks/app/%5Bmarket%5D/loading-abab63ec0ecc6812.js" async=""></script><script src="/_next/static/chunks/e37a0b60-14a6243f0136499e.js" async=""></script><script src="/_next/static/chunks/13b76428-e1bf383848c17260.js" async=""></script><script src="/_next/static/chunks/162-d1be7edd7a253934.js" async=""></script><script src="/_next/static/chunks/2281-5994890ea4b60bd7.js" async=""></script><script src="/_next/static/chunks/2744-df6047e0c37d96c4.js" async=""></script><script src="/_next/static/chunks/3713-3f47ee826454d763.js" async=""></script><script src="/_next/static/chunks/5264-d5e22fb73c685341.js" async=""></script><script src="/_next/static/chunks/6679-185cc1e93ae33eee.js" async=""></script><script src="/_next/static/chunks/8313-d042a756f8860164.js" async=""></script><script src="/_next/static/chunks/94-616f0773eb0e2028.js" async=""></script><script src="/_next/static/chunks/7262-7f5e393580ad6787.js" async=""></script><script src="/_next/static/chunks/7682-db2921e824a6026c.js" async=""></script><script src="/_next/static/chunks/7142-043d357f9cba40ae.js" async=""></script><script src="/_next/static/chunks/9012-5c29bbc0bb6fb545.js" async=""></script><script src="/_next/static/chunks/2559-852e038ceef672d4.js" async=""></script><script src="/_next/static/chunks/8782-99f6977461c820ab.js" async=""></script><script src="/_next/static/chunks/9935-2fe4ffec34939f1a.js" async=""></script><script src="/_next/static/chunks/4483-3e67f9db01e753be.js" async=""></script><script src="/_next/static/chunks/6401-ad25e63da72f1f76.js" async=""></script><script src="/_next/static/chunks/8558-350ccb9a6f5f9f6a.js" async=""></script><script src="/_next/static/chunks/695-877ce89a94832f0b.js" async=""></script><script src="/_next/static/chunks/2230-8149f12d1a8f8fdc.js" async=""></script><script src="/_next/static/chunks/4284-b66a9d7de984c5c2.js" async=""></script><script src="/_next/static/chunks/5882-bded92c7b77a45a7.js" async=""></script><script src="/_next/static/chunks/9587-c34a93c3ba1a0d2c.js" async=""></script><script src="/_next/static/chunks/app/%5Bmarket%5D/%5B...slug%5D/page-7e19f550b5619456.js" async=""></script><script src="/_next/static/chunks/1808-375dee8af28689a2.js" async=""></script><script src="/_next/static/chunks/app/%5Bmarket%5D/layout-0cfd7c8674deaa96.js" async=""></script><title>Buy Disney Park tickets | Disneyland Paris</title><meta name="description" content="Explore our range of Disney Park tickets and choose the one that&#x27;s right for you, from 1-4 days, one or both Disney Parks, and more!"/><meta name="googlebot" content="index"/><meta name="msapplication-TileColor" content="#000000"/><meta name="tcmId" content="tcm:787-261894-64"/><meta name="site" content="admission"/><meta name="url" content="https://tickets.disneylandparis.com/en-int/tickets"/><meta name="robots" content="index"/><link rel="apple-touch-icon" sizes="57x57" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-57x57.png"/><link rel="apple-touch-icon" sizes="60x60" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-60x60.png"/><link rel="apple-touch-icon" sizes="72x72" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-72x72.png"/><link rel="apple-touch-icon" sizes="76x76" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-76x76.png"/><link rel="apple-touch-icon" sizes="114x114" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-114x114.png"/><link rel="apple-touch-icon" sizes="120x120" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-120x120.png"/><link rel="apple-touch-icon" sizes="144x144" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-144x144.png"/><link rel="apple-touch-icon" sizes="152x152" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-152x152.png"/><link rel="apple-touch-icon" sizes="180x180" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-180x180.png"/><link rel="icon" type="image/png" sizes="32x32" href="https://www.disneylandparis.com/static/favicons/1.0.0/favicon-32x32.png"/><link rel="icon" type="image/png" sizes="96x96" href="https://www.disneylandparis.com/static/favicons/1.0.0/favicon-96x96.png"/><link rel="icon" type="image/png" sizes="16x16" href="https://www.disneylandparis.com/static/favicons/1.0.0/favicon-16x16.png"/><link rel="icon" type="image/png" sizes="192x192" href="https://www.disneylandparis.com/static/favicons/1.0.0/android-icon-192x192.png"/><link rel="icon" type="image/png" sizes="194x194" href="https://www.disneylandparis.com/static/favicons/1.0.0/android-icon-194x194.png"/><link rel="manifest" href="https://www.disneylandparis.com/static/favicons/1.0.0/manifest.json"/><link href="https://www.disneylandparis.com/static/favicons/1.0.0/favicon.ico" rel="shortcut icon" type="image/x-icon"/><meta name="fantasiaVersion" content="12.102.0"/><meta name="fontInspireVersion" content="20210518"/><meta name="fontFantasiaVersion" content="1.0.30"/><meta name="tokensFantasiaVersion" content="1.0.3"/><meta name="faviconVersion" content="1.0.0"/><link href="https://www.disneylandparis.com/static/fonts/InspireTWDC/20210518/fonts.min.css" rel="stylesheet"/><link href="https://www.disneylandparis.com/static/fonts/fantasia/1.0.30/fantasia.min.css" rel="stylesheet"/><link href="https://www.disneylandparis.com/static/styles/fantasia-tokens/1.0.3/tokens.min.css" rel="stylesheet"/><script src="https://cdn.tagcommander.com/1258/tc_Disneylandparisfr_1.js"></script><link rel="stylesheet" href="https://media.disneylandparis.com/assets/css/reset.min.css"/><link rel="stylesheet" href="https://media.disneylandparis.com/assets/css/fonts.min.css"/><link rel="stylesheet" href="https://media.disneylandparis.com/assets/css/icons.min.css"/><script src="/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script><style data-styled="" data-styled-version="6.3.8">.font-black{font-family:'InspireTWDC-Heavy';font-style:inherit;font-weight:inherit;}/*!sc*/
+</script><script src="proxy-config.js?v=3"></script><link rel="stylesheet" href="/_next/static/css/57659ba67ce8526e.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/3eb9caa7a9771819.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/808ee801e13a1ae1.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/09cf44782b1c0122.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/85ec3474da9960d7.css" data-precedence="next"/><link rel="stylesheet" href="/_next/static/css/fe890510141ce9f2.css" data-precedence="next"/><link rel="preload" as="script" fetchPriority="low" href="/_next/static/chunks/webpack-e0efe6bfd9187059.js"/><script src="/_next/static/chunks/fd9d1056-5a35e54f2a416d87.js" async=""></script><script src="/_next/static/chunks/2117-b2c4e29a4b2e0279.js" async=""></script><script src="/_next/static/chunks/main-app-5294d1645fe5526e.js" async=""></script><script src="/_next/static/chunks/2361-cafed476f1dbb796.js" async=""></script><script src="/_next/static/chunks/app/%5Bmarket%5D/loading-abab63ec0ecc6812.js" async=""></script><script src="/_next/static/chunks/e37a0b60-14a6243f0136499e.js" async=""></script><script src="/_next/static/chunks/13b76428-e1bf383848c17260.js" async=""></script><script src="/_next/static/chunks/162-d1be7edd7a253934.js" async=""></script><script src="/_next/static/chunks/2281-5994890ea4b60bd7.js" async=""></script><script src="/_next/static/chunks/2744-df6047e0c37d96c4.js" async=""></script><script src="/_next/static/chunks/3713-3f47ee826454d763.js" async=""></script><script src="/_next/static/chunks/5264-d5e22fb73c685341.js" async=""></script><script src="/_next/static/chunks/6679-185cc1e93ae33eee.js" async=""></script><script src="/_next/static/chunks/8313-d042a756f8860164.js" async=""></script><script src="/_next/static/chunks/94-616f0773eb0e2028.js" async=""></script><script src="/_next/static/chunks/7262-7f5e393580ad6787.js" async=""></script><script src="/_next/static/chunks/7682-db2921e824a6026c.js" async=""></script><script src="/_next/static/chunks/7142-043d357f9cba40ae.js" async=""></script><script src="/_next/static/chunks/9012-5c29bbc0bb6fb545.js" async=""></script><script src="/_next/static/chunks/2559-852e038ceef672d4.js" async=""></script><script src="/_next/static/chunks/8782-99f6977461c820ab.js" async=""></script><script src="/_next/static/chunks/9935-2fe4ffec34939f1a.js" async=""></script><script src="/_next/static/chunks/4483-3e67f9db01e753be.js" async=""></script><script src="/_next/static/chunks/6401-ad25e63da72f1f76.js" async=""></script><script src="/_next/static/chunks/8558-350ccb9a6f5f9f6a.js" async=""></script><script src="/_next/static/chunks/695-877ce89a94832f0b.js" async=""></script><script src="/_next/static/chunks/2230-8149f12d1a8f8fdc.js" async=""></script><script src="/_next/static/chunks/4284-b66a9d7de984c5c2.js" async=""></script><script src="/_next/static/chunks/5882-bded92c7b77a45a7.js" async=""></script><script src="/_next/static/chunks/9587-c34a93c3ba1a0d2c.js" async=""></script><script src="/_next/static/chunks/app/%5Bmarket%5D/%5B...slug%5D/page-7e19f550b5619456.js" async=""></script><script src="/_next/static/chunks/1808-375dee8af28689a2.js" async=""></script><script src="/_next/static/chunks/app/%5Bmarket%5D/layout-0cfd7c8674deaa96.js" async=""></script><title>Buy Disney Park tickets | Disneyland Paris</title><meta name="description" content="Explore our range of Disney Park tickets and choose the one that&#x27;s right for you, from 1-4 days, one or both Disney Parks, and more!"/><meta name="googlebot" content="index"/><meta name="msapplication-TileColor" content="#000000"/><meta name="tcmId" content="tcm:787-261894-64"/><meta name="site" content="admission"/><meta name="url" content="https://tickets.disneylandparis.com/en-int/tickets"/><meta name="robots" content="index"/><link rel="apple-touch-icon" sizes="57x57" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-57x57.png"/><link rel="apple-touch-icon" sizes="60x60" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-60x60.png"/><link rel="apple-touch-icon" sizes="72x72" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-72x72.png"/><link rel="apple-touch-icon" sizes="76x76" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-76x76.png"/><link rel="apple-touch-icon" sizes="114x114" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-114x114.png"/><link rel="apple-touch-icon" sizes="120x120" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-120x120.png"/><link rel="apple-touch-icon" sizes="144x144" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-144x144.png"/><link rel="apple-touch-icon" sizes="152x152" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-152x152.png"/><link rel="apple-touch-icon" sizes="180x180" href="https://www.disneylandparis.com/static/favicons/1.0.0/apple-icon-180x180.png"/><link rel="icon" type="image/png" sizes="32x32" href="https://www.disneylandparis.com/static/favicons/1.0.0/favicon-32x32.png"/><link rel="icon" type="image/png" sizes="96x96" href="https://www.disneylandparis.com/static/favicons/1.0.0/favicon-96x96.png"/><link rel="icon" type="image/png" sizes="16x16" href="https://www.disneylandparis.com/static/favicons/1.0.0/favicon-16x16.png"/><link rel="icon" type="image/png" sizes="192x192" href="https://www.disneylandparis.com/static/favicons/1.0.0/android-icon-192x192.png"/><link rel="icon" type="image/png" sizes="194x194" href="https://www.disneylandparis.com/static/favicons/1.0.0/android-icon-194x194.png"/><link rel="manifest" href="https://www.disneylandparis.com/static/favicons/1.0.0/manifest.json"/><link href="https://www.disneylandparis.com/static/favicons/1.0.0/favicon.ico" rel="shortcut icon" type="image/x-icon"/><meta name="fantasiaVersion" content="12.102.0"/><meta name="fontInspireVersion" content="20210518"/><meta name="fontFantasiaVersion" content="1.0.30"/><meta name="tokensFantasiaVersion" content="1.0.3"/><meta name="faviconVersion" content="1.0.0"/><link href="https://www.disneylandparis.com/static/fonts/InspireTWDC/20210518/fonts.min.css" rel="stylesheet"/><link href="https://www.disneylandparis.com/static/fonts/fantasia/1.0.30/fantasia.min.css" rel="stylesheet"/><link href="https://www.disneylandparis.com/static/styles/fantasia-tokens/1.0.3/tokens.min.css" rel="stylesheet"/><script src="https://cdn.tagcommander.com/1258/tc_Disneylandparisfr_1.js"></script><link rel="stylesheet" href="https://media.disneylandparis.com/assets/css/reset.min.css"/><link rel="stylesheet" href="https://media.disneylandparis.com/assets/css/fonts.min.css"/><link rel="stylesheet" href="https://media.disneylandparis.com/assets/css/icons.min.css"/><script src="/_next/static/chunks/polyfills-42372ed130431b0a.js" noModule=""></script><style data-styled="" data-styled-version="6.3.8">.font-black{font-family:'InspireTWDC-Heavy';font-style:inherit;font-weight:inherit;}/*!sc*/
 .hidden{opacity:0;visibility:hidden;}/*!sc*/
 .scroll-lock{overflow:hidden;}/*!sc*/
 data-styled.g1[id="sc-global-dIMtNy1"]{content:"sc-global-dIMtNy1,"}/*!sc*/
